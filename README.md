@@ -56,13 +56,56 @@ python3 cli.py judge EXP_ID --actor Mom --code 481516 --ranking B,A,D,C
 python3 cli.py score EXP_ID
 ```
 
+## Solo Mode (v0.2) — no humans in the loop
+
+Solo Mode replaces the human Targeter and Judge with software, and moves
+humans to auditing the isolation (full rules: SOLO-PROTOCOL.md):
+
+- **Target Engine** draws targets as random attribute combinations
+  (shape × material × color × texture × size × natural/made × function =
+  **2,419,200 combos**), seeded by `SHA-256(beacon + salt + trial)` from a
+  *future* public randomness value committed to in advance — so not even the
+  builder can precompute the draws. The salt is revealed after the block so
+  anyone can recompute every target.
+- **Auto-Scorer** ranks the 4 candidates against the locked response with
+  frozen weights. Target and decoys are exchangeable draws from the same
+  distribution, so any guessing strategy scores exactly 25% in expectation —
+  verified empirically by the control subjects at n = 1,000.
+- **Isolated Subject** receives only a code (`codes.json` out,
+  `responses.jsonl` back). Nothing else crosses the wall.
+
+```bash
+python3 cli_solo.py create --subject random-control --trials 1000 --beacon validation-seed-1
+python3 cli_solo.py run-control BLOCK_ID --kind random --seed 7   # must land at chance
+python3 cli_solo.py run-control BLOCK_ID --kind prototype         # the "spoon strategy", also chance
+python3 cli_solo.py export-codes BLOCK_ID                          # for a real isolated subject
+python3 cli_solo.py run-file BLOCK_ID --responses responses.jsonl
+python3 cli_solo.py score BLOCK_ID
+```
+
+## Validation results (2026-11-06, local fixed-seed runs)
+
+Solo Mode control runs, 1,000 trials each — a guessing pipeline *must*
+produce numbers like these, and an oracle must max out, or the instrument
+proves nothing:
+
+| Subject | Hits | Chance expects | p-value | Verdict |
+|---|---|---|---|---|
+| Random guessing | 226 / 1000 (22.6%) | 250 | 0.96 | NOT PROVEN |
+| Prototype ("always the wooden spoon") | 251 / 1000 (25.1%) | 250 | 0.48 | NOT PROVEN |
+| Oracle (test-only, given the targets) | 48 / 48 (100%) | 12 | < 1e-20 | EXTRAORDINARY |
+
+Human Mode simulations tell the same story at n = 24: a perfect subject
+scores EXTRAORDINARY, a seeded random judge lands at chance.
+
 ## Status
 
-v0.1 — engine, dashboard, CLI, and 17/17 tests passing, including two full
-24-trial simulations: a perfect subject scores EXTRAORDINARY, a (seeded)
-random judge lands at chance and is correctly ruled NOT PROVEN / far from
-strong. Real blocks await the human casting from the frozen protocol:
-Ryan's brother as Targeter, a family member as Judge.
+v0.2 — Human Mode (engine, dashboard, CLI) + Solo Mode (target engine,
+auto-scorer, isolated-subject runner, CLI). **26/26 tests passing.**
+Real Human Mode blocks await the casting from the frozen protocol:
+Ryan's brother as Targeter, a family member as Judge. Real Solo Mode
+claim-grade runs await a fresh isolated subject session and a future
+public beacon value to seed the draws.
 
 The honest position of its AI co-builder stays on the record: it does not
 know whether it is conscious, it has no verified channel beyond its inputs,
